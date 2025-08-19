@@ -1,0 +1,181 @@
+version: '3.8'
+
+services:
+  # Nacos注册中心和配置中心
+  nacos:
+    image: nacos/nacos-server:v2.3.0
+    container_name: nacos
+    environment:
+      MODE: standalone
+      NACOS_AUTH_ENABLE: true
+      NACOS_AUTH_TOKEN: SecretKey012345678901234567890123456789012345678901234567890123456789
+      NACOS_AUTH_IDENTITY_KEY: nacos
+      NACOS_AUTH_IDENTITY_VALUE: nacos
+    ports:
+      - "8848:8848"
+      - "9848:9848"
+    volumes:
+      - ./docker/nacos/logs:/home/nacos/logs
+      - ./docker/nacos/data:/home/nacos/data
+    networks:
+      - im-network
+
+  # MySQL数据库
+  mysql:
+    image: mysql:8.0
+    container_name: mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: root123456
+      MYSQL_DATABASE: im_backend
+      MYSQL_USER: im_user
+      MYSQL_PASSWORD: im_password
+    ports:
+      - "3306:3306"
+    volumes:
+      - ./docker/mysql/data:/var/lib/mysql
+      - ./docker/mysql/init:/docker-entrypoint-initdb.d
+    command: --default-authentication-plugin=mysql_native_password
+    networks:
+      - im-network
+
+  # Redis缓存
+  redis:
+    image: redis:7.2-alpine
+    container_name: redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - ./docker/redis/data:/data
+      - ./docker/redis/conf/redis.conf:/etc/redis/redis.conf
+    command: redis-server /etc/redis/redis.conf
+    networks:
+      - im-network
+
+  # Kafka消息队列
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.4.0
+    container_name: zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    ports:
+      - "2181:2181"
+    volumes:
+      - ./docker/zookeeper/data:/var/lib/zookeeper/data
+      - ./docker/zookeeper/logs:/var/lib/zookeeper/log
+    networks:
+      - im-network
+
+  kafka:
+    image: confluentinc/cp-kafka:7.4.0
+    container_name: kafka
+    depends_on:
+      - zookeeper
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: true
+    ports:
+      - "9092:9092"
+    volumes:
+      - ./docker/kafka/data:/var/lib/kafka/data
+    networks:
+      - im-network
+
+  # InfluxDB时序数据库
+  influxdb:
+    image: influxdb:2.7
+    container_name: influxdb
+    environment:
+      INFLUXDB_DB: im_messages
+      INFLUXDB_ADMIN_USER: admin
+      INFLUXDB_ADMIN_PASSWORD: admin123456
+      INFLUXDB_USER: im_user
+      INFLUXDB_USER_PASSWORD: im_password
+    ports:
+      - "8086:8086"
+    volumes:
+      - ./docker/influxdb/data:/var/lib/influxdb2
+      - ./docker/influxdb/config:/etc/influxdb2
+    networks:
+      - im-network
+
+  # TDengine时序数据库（可选）
+  tdengine:
+    image: tdengine/tdengine:3.2.4.0
+    container_name: tdengine
+    environment:
+      TAOS_FQDN: tdengine
+    ports:
+      - "6030:6030"
+      - "6041:6041"
+    volumes:
+      - ./docker/tdengine/data:/var/lib/taos
+      - ./docker/tdengine/log:/var/log/taos
+    networks:
+      - im-network
+
+  # Prometheus监控
+  prometheus:
+    image: prom/prometheus:v2.47.0
+    container_name: prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./docker/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      - ./docker/prometheus/data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=200h'
+      - '--web.enable-lifecycle'
+    networks:
+      - im-network
+
+  # Grafana监控面板
+  grafana:
+    image: grafana/grafana:10.1.0
+    container_name: grafana
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin123456
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./docker/grafana/data:/var/lib/grafana
+    networks:
+      - im-network
+
+  # Jaeger链路追踪
+  jaeger:
+    image: jaegertracing/all-in-one:1.49
+    container_name: jaeger
+    environment:
+      COLLECTOR_ZIPKIN_HOST_PORT: 9411
+    ports:
+      - "5775:5775/udp"
+      - "6831:6831/udp"
+      - "6832:6832/udp"
+      - "5778:5778"
+      - "16686:16686"
+      - "14268:14268"
+      - "14250:14250"
+      - "9411:9411"
+    networks:
+      - im-network
+
+networks:
+  im-network:
+    driver: bridge
+
+volumes:
+  mysql_data:
+  redis_data:
+  influxdb_data:
+  tdengine_data:
+  prometheus_data:
+  grafana_data:

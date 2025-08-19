@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IM Backend WebSocket Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .input-group {
+            margin: 10px 0;
+        }
+        label {
+            display: inline-block;
+            width: 100px;
+            font-weight: bold;
+        }
+        input, button {
+            padding: 8px 12px;
+            margin: 5px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            cursor: pointer;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        button:disabled {
+            background: #6c757d;
+            cursor: not-allowed;
+        }
+        .log {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            padding: 15px;
+            height: 300px;
+            overflow-y: auto;
+            margin: 20px 0;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        .status {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+            font-weight: bold;
+        }
+        .status.connected {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .status.disconnected {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .message-form {
+            border: 1px solid #ddd;
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 4px;
+            background: #f9f9f9;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>IM Backend WebSocket 测试工具</h1>
+        
+        <div class="input-group">
+            <label>用户ID:</label>
+            <input type="text" id="userId" value="user001" placeholder="输入用户ID">
+        </div>
+        
+        <div class="input-group">
+            <label>服务器:</label>
+            <input type="text" id="serverUrl" value="ws://localhost:8082/ws/im" placeholder="WebSocket服务器地址">
+        </div>
+        
+        <div class="input-group">
+            <button id="connectBtn" onclick="connect()">连接</button>
+            <button id="disconnectBtn" onclick="disconnect()" disabled>断开</button>
+            <button onclick="clearLog()">清空日志</button>
+        </div>
+        
+        <div id="status" class="status disconnected">未连接</div>
+        
+        <div class="message-form">
+            <h3>发送消息</h3>
+            <div class="input-group">
+                <label>消息类型:</label>
+                <select id="messageType">
+                    <option value="heartbeat">心跳</option>
+                    <option value="message">聊天消息</option>
+                    <option value="custom">自定义</option>
+                </select>
+            </div>
+            <div class="input-group">
+                <label>消息内容:</label>
+                <input type="text" id="messageContent" placeholder="输入消息内容">
+                <button onclick="sendMessage()">发送</button>
+            </div>
+        </div>
+        
+        <div>
+            <h3>连接日志</h3>
+            <div id="log" class="log"></div>
+        </div>
+        
+        <div>
+            <h3>统计信息</h3>
+            <div id="stats">
+                <p>连接时间: <span id="connectTime">-</span></p>
+                <p>发送消息数: <span id="sentCount">0</span></p>
+                <p>接收消息数: <span id="receivedCount">0</span></p>
+                <p>心跳次数: <span id="heartbeatCount">0</span></p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let ws = null;
+        let heartbeatTimer = null;
+        let connectTime = null;
+        let sentCount = 0;
+        let receivedCount = 0;
+        let heartbeatCount = 0;
+
+        function log(message) {
+            const logDiv = document.getElementById('log');
+            const timestamp = new Date().toLocaleTimeString();
+            logDiv.innerHTML += `[${timestamp}] ${message}\n`;
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+
+        function updateStatus(connected) {
+            const statusDiv = document.getElementById('status');
+            const connectBtn = document.getElementById('connectBtn');
+            const disconnectBtn = document.getElementById('disconnectBtn');
+            
+            if (connected) {
+                statusDiv.textContent = '已连接';
+                statusDiv.className = 'status connected';
+                connectBtn.disabled = true;
+                disconnectBtn.disabled = false;
+            } else {
+                statusDiv.textContent = '未连接';
+                statusDiv.className = 'status disconnected';
+                connectBtn.disabled = false;
+                disconnectBtn.disabled = true;
+            }
+        }
+
+        function updateStats() {
+            document.getElementById('connectTime').textContent = connectTime ? connectTime.toLocaleString() : '-';
+            document.getElementById('sentCount').textContent = sentCount;
+            document.getElementById('receivedCount').textContent = receivedCount;
+            document.getElementById('heartbeatCount').textContent = heartbeatCount;
+        }
+
+        function connect() {
+            const userId = document.getElementById('userId').value;
+            const serverUrl = document.getElementById('serverUrl').value;
+            
+            if (!userId) {
+                alert('请输入用户ID');
+                return;
+            }
+
+            const wsUrl = `${serverUrl}?userId=${userId}`;
+            log(`正在连接到: ${wsUrl}`);
+
+            try {
+                ws = new WebSocket(wsUrl);
+
+                ws.onopen = function(event) {
+                    connectTime = new Date();
+                    updateStatus(true);
+                    log('WebSocket连接已建立');
+                    updateStats();
+                    
+                    // 启动心跳
+                    startHeartbeat();
+                };
+
+                ws.onmessage = function(event) {
+                    receivedCount++;
+                    const message = JSON.parse(event.data);
+                    log(`收到消息: ${JSON.stringify(message)}`);
+                    
+                    if (message.type === 'heartbeat_ack') {
+                        log('心跳响应已收到');
+                    }
+                    
+                    updateStats();
+                };
+
+                ws.onclose = function(event) {
+                    updateStatus(false);
+                    log(`连接已关闭: code=${event.code}, reason=${event.reason}`);
+                    stopHeartbeat();
+                    connectTime = null;
+                    updateStats();
+                };
+
+                ws.onerror = function(error) {
+                    log(`连接错误: ${error}`);
+                };
+            } catch (error) {
+                log(`连接失败: ${error.message}`);
+            }
+        }
+
+        function disconnect() {
+            if (ws) {
+                ws.close();
+                ws = null;
+            }
+            stopHeartbeat();
+        }
+
+        function sendMessage() {
+            if (!ws || ws.readyState !== WebSocket.OPEN) {
+                alert('WebSocket未连接');
+                return;
+            }
+
+            const messageType = document.getElementById('messageType').value;
+            const messageContent = document.getElementById('messageContent').value;
+
+            let message = {
+                type: messageType,
+                timestamp: Date.now()
+            };
+
+            if (messageType === 'heartbeat') {
+                message.data = {};
+                heartbeatCount++;
+            } else if (messageType === 'message') {
+                message.data = {
+                    content: messageContent,
+                    messageId: 'msg_' + Date.now()
+                };
+            } else {
+                try {
+                    message.data = JSON.parse(messageContent);
+                } catch (e) {
+                    message.data = messageContent;
+                }
+            }
+
+            ws.send(JSON.stringify(message));
+            sentCount++;
+            log(`发送消息: ${JSON.stringify(message)}`);
+            updateStats();
+
+            // 清空输入框
+            if (messageType !== 'heartbeat') {
+                document.getElementById('messageContent').value = '';
+            }
+        }
+
+        function startHeartbeat() {
+            heartbeatTimer = setInterval(() => {
+                if (ws && ws.readyState === WebSocket.OPEN) {
+                    const heartbeatMessage = {
+                        type: 'heartbeat',
+                        timestamp: Date.now()
+                    };
+                    ws.send(JSON.stringify(heartbeatMessage));
+                    heartbeatCount++;
+                    log('发送心跳');
+                    updateStats();
+                }
+            }, 30000); // 30秒心跳间隔
+        }
+
+        function stopHeartbeat() {
+            if (heartbeatTimer) {
+                clearInterval(heartbeatTimer);
+                heartbeatTimer = null;
+            }
+        }
+
+        function clearLog() {
+            document.getElementById('log').innerHTML = '';
+        }
+
+        // 页面加载完成后的初始化
+        window.onload = function() {
+            updateStats();
+        };
+
+        // 页面关闭时断开连接
+        window.onbeforeunload = function() {
+            if (ws) {
+                ws.close();
+            }
+        };
+    </script>
+</body>
+</html>

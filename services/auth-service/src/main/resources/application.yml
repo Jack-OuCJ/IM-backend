@@ -1,0 +1,69 @@
+server:
+  port: 8081
+
+spring:
+  application:
+    name: auth-service
+  cloud:
+    nacos:
+      discovery:
+        server-addr: localhost:8848
+        username: nacos
+        password: nacos
+      config:
+        server-addr: localhost:8848
+        username: nacos
+        password: nacos
+        file-extension: yml
+  
+# 认证配置
+auth:
+  jwt:
+    secret: im-backend-jwt-secret-key-123456789
+    expiration: 3600 # 1小时
+
+# 腾讯云IM配置
+tencent:
+  im:
+    sdk-app-id: ${TENCENT_IM_SDK_APP_ID:1400000000}
+    secret-key: ${TENCENT_IM_SECRET_KEY:your_secret_key}
+    usersig:
+      expiration: 604800 # 7天
+
+# Redis配置
+spring:
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      password:
+      database: 0
+      timeout: 2000ms
+      lettuce:
+        pool:
+          max-active: 8
+          max-idle: 8
+          min-idle: 0
+          max-wait: -1ms
+
+# 日志配置
+logging:
+  level:
+    com.tencent.im.backend: DEBUG
+    org.springframework.security: DEBUG
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level [%logger{50}] - %msg%n"
+
+# 监控配置
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      show-details: always
+  metrics:
+    export:
+      prometheus:
+        enabled: true

@@ -35,15 +35,9 @@
 
     <modules>
         <module>common/common-core</module>
-        <module>common/common-security</module>
-        <module>common/common-feign</module>
         <module>common/common-websocket</module>
         <module>common/common-timeseries</module>
-        <module>platform/gateway</module>
         <module>services/auth-service</module>
-        <module>services/chat-orchestration-service</module>
-        <module>services/callbacks-service</module>
-        <module>services/moderation-service</module>
         <module>services/connection-service</module>
         <module>services/message-sequence-service</module>
     </modules>

@@ -102,21 +102,6 @@ services:
     networks:
       - im-network
 
-  # TDengine时序数据库（可选）
-  tdengine:
-    image: tdengine/tdengine:3.2.4.0
-    container_name: tdengine
-    environment:
-      TAOS_FQDN: tdengine
-    ports:
-      - "6030:6030"
-      - "6041:6041"
-    volumes:
-      - ./docker/tdengine/data:/var/lib/taos
-      - ./docker/tdengine/log:/var/log/taos
-    networks:
-      - im-network
-
   # Prometheus监控
   prometheus:
     image: prom/prometheus:v2.47.0

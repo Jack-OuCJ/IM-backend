@@ -53,7 +53,7 @@ public class IMWebSocketHandler implements WebSocketHandler {
     }
 
     @Override
-    public void handleMessage(WebSocketSession session, WebSocketMessage<?> message) throws Exception {
+    public void handleMessage(WebSocketSession session, org.springframework.web.socket.WebSocketMessage<?> message) throws Exception {
         String connectionId = (String) session.getAttributes().get("connectionId");
         String userId = (String) session.getAttributes().get("userId");
 

@@ -1,5 +1,5 @@
 server:
-  port: 8081
+  port: 8089
 
 spring:
   application:
@@ -10,33 +10,21 @@ spring:
         server-addr: localhost:8848
         username: nacos
         password: nacos
+        namespace: public
+        enable: true
       config:
         server-addr: localhost:8848
         username: nacos
         password: nacos
+        namespace: public
+        group: DEFAULT_GROUP
         file-extension: yml
-  
-# 认证配置
-auth:
-  jwt:
-    secret: im-backend-jwt-secret-key-123456789
-    expiration: 3600 # 1小时
-
-# 腾讯云IM配置
-tencent:
-  im:
-    sdk-app-id: ${TENCENT_IM_SDK_APP_ID:1400000000}
-    secret-key: ${TENCENT_IM_SECRET_KEY:your_secret_key}
-    usersig:
-      expiration: 604800 # 7天
-
-# Redis配置
-spring:
+        refresh-enabled: true
+        enable-remote-sync-config: true
   data:
     redis:
       host: localhost
       port: 6379
-      password:
       database: 0
       timeout: 2000ms
       lettuce:
@@ -45,6 +33,12 @@ spring:
           max-idle: 8
           min-idle: 0
           max-wait: -1ms
+
+# 认证配置
+auth:
+  jwt:
+    secret: secretkey011111111111111111
+    expiration: 3600 # 1小时
 
 # 日志配置
 logging:
@@ -67,3 +61,5 @@ management:
     export:
       prometheus:
         enabled: true
+
+# IM 配置（将从 Nacos 覆盖）

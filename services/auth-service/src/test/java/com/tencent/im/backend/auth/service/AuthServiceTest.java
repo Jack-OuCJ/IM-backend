@@ -1,5 +1,6 @@
 package com.tencent.im.backend.auth.service;
 
+import com.tencent.im.backend.auth.config.IMProperties;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.BeforeEach;
 import org.mockito.MockitoAnnotations;
@@ -10,13 +11,23 @@ import static org.junit.jupiter.api.Assertions.*;
 public class AuthServiceTest {
 
     private AuthService authService;
+    private IMProperties imProperties;
     
     @BeforeEach
     public void setUp() {
         MockitoAnnotations.openMocks(this);
         
+        // 创建 IMProperties 实例并设置测试数据
+        imProperties = new IMProperties();
+        imProperties.setSdkAppId(1400000000L);
+        imProperties.getUserSig().setExpireSeconds(86400L);
+        imProperties.getPrivateKey().setRef("file:///tmp/test_private_key.pem");
+        
         // 创建 AuthService 实例
         authService = new AuthService();
+        
+        // 注入 IMProperties
+        ReflectionTestUtils.setField(authService, "imProperties", imProperties);
     }
 
     @Test

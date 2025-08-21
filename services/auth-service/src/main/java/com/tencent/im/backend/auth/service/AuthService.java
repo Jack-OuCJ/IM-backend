@@ -1,7 +1,8 @@
 package com.tencent.im.backend.auth.service;
 
+import com.tencent.im.backend.auth.config.IMProperties;
 import com.tencentyun.TLSSigAPIv2;
-import org.springframework.beans.factory.annotation.Value;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import jakarta.annotation.PostConstruct;
@@ -13,14 +14,8 @@ import java.nio.file.Paths;
 @Service
 public class AuthService {
 
-    @Value("${im.sdkAppId}")
-    private long sdkAppId;
-        
-    @Value("${im.usersig.expireSeconds}")
-    private long usersigExpireSeconds;
-    
-    @Value("${im.privateKey.ref}")
-    private String privateKeyRef;
+    @Autowired
+    private IMProperties imProperties;
 
     @SuppressWarnings("unused")
     private volatile String privateKey;
@@ -32,13 +27,13 @@ public class AuthService {
     }
 
     public synchronized void reloadKeyAndApi() {
-        String key = loadKeyByRef(privateKeyRef);
+        String key = loadKeyByRef(imProperties.getPrivateKey().getRef());
         if (key == null || key.isBlank()) {
-            throw new IllegalStateException("Private key is empty: " + privateKeyRef);
+            throw new IllegalStateException("Private key is empty: " + imProperties.getPrivateKey().getRef());
         }
         this.privateKey = key;
 
-        this.tlsSigApi = new TLSSigAPIv2(sdkAppId, key);
+        this.tlsSigApi = new TLSSigAPIv2(imProperties.getSdkAppId(), key);
     }
 
     public String generateUserSig(String userId) {
@@ -46,7 +41,7 @@ public class AuthService {
             throw new IllegalArgumentException("userId cannot be null or empty");
         }
         TLSSigAPIv2 api = this.tlsSigApi;
-        return api.genUserSig(userId, usersigExpireSeconds);
+        return api.genUserSig(userId, imProperties.getUserSig().getExpireSeconds());
     }
 
     public String generateJwtToken(String userId, String username) {
@@ -63,13 +58,22 @@ public class AuthService {
     }
 
     private String loadKeyByRef(String ref) {
-        if (ref != null && ref.startsWith("file://")) {
+        if (ref == null || ref.trim().isEmpty()) {
+            throw new IllegalArgumentException("Private key ref is null or empty");
+        }
+        
+        if (ref.startsWith("file://")) {
             try {
                 return Files.readString(Paths.get(URI.create(ref)), StandardCharsets.UTF_8);
             } catch (Exception e) {
                 throw new RuntimeException("Read private key failed: " + ref, e);
             }
+        } else if (ref.startsWith("inline:")) {
+            // 直接返回内联的私钥内容，去掉 "inline:" 前缀
+            return ref.substring(7);
+        } else {
+            // 如果没有前缀，直接作为内联内容处理
+            return ref;
         }
-        throw new IllegalArgumentException("Unsupported ref: " + ref);
     }
 }

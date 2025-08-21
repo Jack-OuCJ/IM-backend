@@ -62,4 +62,3 @@ management:
       prometheus:
         enabled: true
 
-# IM 配置（将从 Nacos 覆盖）

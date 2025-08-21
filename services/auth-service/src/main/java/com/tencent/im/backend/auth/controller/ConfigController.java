@@ -1,7 +1,10 @@
 package com.tencent.im.backend.auth.controller;
 
-import org.springframework.beans.factory.annotation.Value;
+import com.tencent.im.backend.auth.config.IMProperties;
+import com.tencent.im.backend.auth.service.AuthService;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -16,14 +19,11 @@ import java.util.Map;
 @RequestMapping("/config")
 public class ConfigController {
 
-    @Value("${im.sdkAppId}")
-    private long sdkAppId;
+    @Autowired
+    private IMProperties imProperties;
     
-    @Value("${im.usersig.expireSeconds}")
-    private long usersigExpireSeconds;
-    
-    @Value("${im.privateKey.ref}")
-    private String privateKeyRef;
+    @Autowired
+    private AuthService authService;
 
     /**
      * 获取当前 IM 配置信息
@@ -34,18 +34,18 @@ public class ConfigController {
         Map<String, Object> config = new HashMap<>();
         
         // 基本信息
-        config.put("sdkAppId", sdkAppId);
-        config.put("configLoaded", sdkAppId > 0);
+        config.put("sdkAppId", imProperties.getSdkAppId());
+        config.put("configLoaded", imProperties.getSdkAppId() > 0);
         
         // Usersig 配置
         Map<String, Object> usersigConfig = new HashMap<>();
-        usersigConfig.put("expireSeconds", usersigExpireSeconds);
+        usersigConfig.put("expireSeconds", imProperties.getUserSig().getExpireSeconds());
         config.put("usersig", usersigConfig);
         
         // PrivateKey 配置
         Map<String, Object> privateKeyConfig = new HashMap<>();
-        privateKeyConfig.put("ref", privateKeyRef);
-        privateKeyConfig.put("refConfigured", privateKeyRef != null);
+        privateKeyConfig.put("ref", imProperties.getPrivateKey().getRef());
+        privateKeyConfig.put("refConfigured", imProperties.getPrivateKey().getRef() != null);
         config.put("privateKey", privateKeyConfig);
         
         // 配置状态
@@ -63,16 +63,45 @@ public class ConfigController {
     public Map<String, Object> healthCheck() {
         Map<String, Object> health = new HashMap<>();
         
-        boolean isHealthy = sdkAppId > 0 
-                && privateKeyRef != null;
+        boolean isHealthy = imProperties.getSdkAppId() > 0 
+                && imProperties.getPrivateKey().getRef() != null;
         
         health.put("status", isHealthy ? "UP" : "DOWN");
         health.put("configurationLoaded", isHealthy);
         health.put("details", Map.of(
-            "sdkAppIdConfigured", sdkAppId > 0,
-            "privateKeyConfigured", privateKeyRef != null
+            "sdkAppIdConfigured", imProperties.getSdkAppId() > 0,
+            "privateKeyConfigured", imProperties.getPrivateKey().getRef() != null
         ));
         
         return health;
+    }
+
+    /**
+     * 重新加载配置
+     * 支持运行时动态更新
+     */
+    @PostMapping("/reload")
+    public Map<String, Object> reloadConfig() {
+        Map<String, Object> result = new HashMap<>();
+        
+        try {
+            // 重新加载认证服务的密钥和API
+            authService.reloadKeyAndApi();
+            
+            result.put("status", "SUCCESS");
+            result.put("message", "Configuration reloaded successfully");
+            result.put("timestamp", System.currentTimeMillis());
+            result.put("currentConfig", Map.of(
+                "sdkAppId", imProperties.getSdkAppId(),
+                "expireSeconds", imProperties.getUserSig().getExpireSeconds(),
+                "privateKeyRef", imProperties.getPrivateKey().getRef()
+            ));
+        } catch (Exception e) {
+            result.put("status", "FAILED");
+            result.put("message", "Failed to reload configuration: " + e.getMessage());
+            result.put("error", e.getClass().getSimpleName());
+        }
+        
+        return result;
     }
 }

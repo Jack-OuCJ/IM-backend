@@ -3,7 +3,7 @@ version: '3.8'
 services:
   # Nacos注册中心和配置中心
   nacos:
-    image: nacos/nacos-server:v2.3.0
+    image: nacos/nacos-server:v2.3.2
     container_name: nacos
     environment:
       MODE: standalone

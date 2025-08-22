@@ -11,7 +11,8 @@ CREATE TABLE IF NOT EXISTS users (
     nickname VARCHAR(64) COMMENT '昵称',
     avatar_url VARCHAR(255) COMMENT '头像URL',
     phone VARCHAR(20) COMMENT '手机号',
-    email VARCHAR(100) COMMENT '邮箱',
+    email VARCHAR(100) NOT NULL UNIQUE COMMENT '邮箱',
+    email_verified TINYINT NOT NULL DEFAULT 0 COMMENT '邮箱是否验证：1-已验证，0-未验证',
     status TINYINT NOT NULL DEFAULT 1 COMMENT '状态：1-正常，0-禁用',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
@@ -20,6 +21,20 @@ CREATE TABLE IF NOT EXISTS users (
     INDEX idx_phone (phone),
     INDEX idx_email (email)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='用户表';
+
+-- 邮箱验证表
+CREATE TABLE IF NOT EXISTS email_verifications (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    email VARCHAR(100) NOT NULL COMMENT '邮箱地址',
+    verification_code VARCHAR(10) NOT NULL COMMENT '验证码',
+    purpose TINYINT NOT NULL COMMENT '用途：1-注册，2-找回密码，3-修改邮箱',
+    expires_at TIMESTAMP NOT NULL COMMENT '过期时间',
+    verified TINYINT NOT NULL DEFAULT 0 COMMENT '是否已验证：1-已验证，0-未验证',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    INDEX idx_email (email),
+    INDEX idx_email_code (email, verification_code),
+    INDEX idx_expires_at (expires_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='邮箱验证表';
 
 -- 用户关系表
 CREATE TABLE IF NOT EXISTS user_relationships (

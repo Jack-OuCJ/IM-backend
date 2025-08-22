@@ -1,0 +1,30 @@
+server:
+  port: 8090
+
+spring:
+  application:
+    name: user-service
+  cloud:
+    nacos:
+      discovery:
+        server-addr: ${NACOS_SERVER_ADDR:127.0.0.1:8848}
+        group: DEFAULT_GROUP
+        namespace: ${NACOS_NAMESPACE:public}
+        username: nacos
+        password: nacos
+      config:
+        server-addr: ${NACOS_SERVER_ADDR:127.0.0.1:8848}
+        file-extension: yml
+        group: DEFAULT_GROUP
+        namespace: ${NACOS_NAMESPACE:public}
+        refresh-enabled: true
+        enable-remote-sync-config: true
+        username: nacos
+        password: nacos
+
+logging:
+  level:
+    org.springframework.beans.factory.support: DEBUG
+    org.springframework.context.support.PostProcessorRegistrationDelegate: DEBUG
+
+

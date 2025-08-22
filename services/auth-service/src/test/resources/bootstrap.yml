@@ -1,0 +1,35 @@
+spring:
+  application:
+    name: auth-service  # 使用与主应用相同的名称
+  profiles:
+    active: test
+  cloud:
+    nacos:
+      discovery:
+        server-addr: localhost:8848
+        username: nacos
+        password: nacos
+        namespace: public
+        enabled: false  # 测试环境禁用服务发现
+      config:
+        server-addr: localhost:8848
+        username: nacos
+        password: nacos
+        namespace: public
+        group: DEFAULT_GROUP
+        file-extension: yml
+        refresh-enabled: true
+        enable-remote-sync-config: true
+        enabled: true  # 启用配置中心以从 Nacos 获取配置
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      database: 0
+      timeout: 2000ms
+
+logging:
+  level:
+    com.tencent.im.backend.auth: DEBUG
+    org.springframework.cloud.bootstrap: DEBUG
+    com.alibaba.nacos: DEBUG

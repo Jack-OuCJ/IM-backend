@@ -22,9 +22,4 @@ spring:
         username: nacos
         password: nacos
 
-logging:
-  level:
-    org.springframework.beans.factory.support: DEBUG
-    org.springframework.context.support.PostProcessorRegistrationDelegate: DEBUG
-
 

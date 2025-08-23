@@ -40,10 +40,11 @@
         <module>common/common-core</module>
         <module>common/common-websocket</module>
         <module>common/common-timeseries</module>
-        <module>services/auth-service</module>
-        <module>services/connection-service</module>
-        <module>services/message-sequence-service</module>
-        <module>services/user-service</module>
+        <module>auth-service</module>
+        <module>connection-service</module>
+        <module>message-sequence-service</module>
+        <module>user-service</module>
+        <module>gateway</module>
     </modules>
 
     <dependencyManagement>

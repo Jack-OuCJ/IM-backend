@@ -39,6 +39,19 @@ public class GatewayConfig {
                                         .setFallbackUri("forward:/fallback/auth"))
                                 .retry(config -> config
                                         .setRetries(2)
+                                        .setBackoff(Duration.ofMillis(100), Duration.ofSeconds(1), 2, false))
+                                .stripPrefix(2))
+                        .uri("lb://auth-service"))
+                
+                // 认证服务配置路由（用于配置管理和调试）
+                .route("auth-config-service", r -> r
+                        .path("/config/**")
+                        .filters(f -> f
+                                .circuitBreaker(config -> config
+                                        .setName("auth-service-cb")
+                                        .setFallbackUri("forward:/fallback/auth"))
+                                .retry(config -> config
+                                        .setRetries(2)
                                         .setBackoff(Duration.ofMillis(100), Duration.ofSeconds(1), 2, false)))
                         .uri("lb://auth-service"))
                 

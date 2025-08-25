@@ -16,7 +16,7 @@ public class GatewayApplication {
     public static void main(String[] args) {
         SpringApplication.run(GatewayApplication.class, args);
         System.out.println("=== IM Backend Gateway Service Started Successfully ===");
-        System.out.println("=== Gateway API: http://localhost:8080 ===");
-        System.out.println("=== Health Check: http://localhost:8080/actuator/health ===");
+        System.out.println("=== Gateway API: http://localhost:8088 ===");
+        System.out.println("=== Health Check: http://localhost:8088/actuator/health ===");
     }
 }

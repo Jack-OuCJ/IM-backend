@@ -46,7 +46,8 @@ public class JwtAuthenticationFilter implements GlobalFilter, Ordered {
             "/api/auth/login",
             "/api/auth/refresh",
             "/actuator/health",
-            "/favicon.ico"
+            "/favicon.ico",
+            "/api/auth/config/im-properties"
     );
 
     @Override

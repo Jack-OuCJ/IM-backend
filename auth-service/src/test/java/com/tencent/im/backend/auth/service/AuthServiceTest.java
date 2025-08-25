@@ -10,6 +10,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
 
 import static org.junit.jupiter.api.Assertions.*;
+import redis.clients.jedis.JedisPooled;
 
 @SpringBootTest(classes = AuthServiceApplication.class)
 @ActiveProfiles("test")
@@ -131,5 +132,23 @@ public class AuthServiceTest {
         
         logger.info("✓ 测试通过：AuthService 初始化正常");
         logger.info("测试用户 '{}' 的 UserSig: {}", userId, userSig);
+    }
+
+    @Test
+    public void testRedis() {
+        try (JedisPooled jedis = new JedisPooled("localhost", 6379)) {
+            String key = "rank:scores";
+            jedis.zadd(key, 100, "u1");
+            jedis.zadd(key, 150, "u2");
+            jedis.zincrby(key, 10, "u1");
+            // 正序（分数小->大）
+            System.out.println(jedis.zrangeWithScores(key, 0, -1));
+            // 倒序（排行榜）
+            System.out.println(jedis.zrevrangeWithScores(key, 0, 10));
+            // 查看排名和分数
+            Long rank = jedis.zrevrank(key, "u1");
+            Double score = jedis.zscore(key, "u1");
+            System.out.println("u1 rank=" + rank + " score=" + score);
+        }
     }
 }

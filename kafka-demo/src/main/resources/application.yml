@@ -23,12 +23,15 @@ spring:
       buffer-memory: 33554432
       
     consumer:
-      group-id: im-consumer-group
+      group-id: consumer-demo-group
       auto-offset-reset: earliest
       key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
-      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.ErrorHandlingDeserializer
       properties:
         spring.json.trusted.packages: "com.im.dto"
+        spring.deserializer.value.delegate.class: org.springframework.kafka.support.serializer.JsonDeserializer
+        spring.json.value.default.type: com.im.dto.ChatMessage
+        spring.json.type.mapping: "chatMessage:com.im.dto.ChatMessage"
       enable-auto-commit: false
       
     listener:
@@ -39,17 +42,18 @@ logging:
     com.im: DEBUG
     org.springframework.kafka: INFO
 
-kafka:
-  topic: chat-message-topic
-  consumer:
-    group-id: im-consumer-group
-
 im:
   kafka:
     topics:
       chat-message: "chat-message-topic"
       chat-message-retry: "chat-message-retry-topic"
       chat-message-dlt: "chat-message-dlt-topic"
+
+kafka:
+  producer:
+    retry:
+      max-attempts: 3
+      delay-ms: 1000
   retry:
     max-attempts: 3
     delay-ms: 1000

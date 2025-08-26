@@ -36,6 +36,8 @@ services:
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 2
       KAFKA_MIN_INSYNC_REPLICAS: 2
       KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_LOG_RETENTION_MS: 604800000        # 7 days
+      KAFKA_LOG_RETENTION_BYTES: -1            # no limited
 
       # Log directory (consistent with volume)
       KAFKA_LOG_DIRS: "/var/lib/kafka/data"
@@ -74,6 +76,10 @@ services:
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 2
       KAFKA_MIN_INSYNC_REPLICAS: 2
       KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+
+      KAFKA_LOG_RETENTION_MS: 604800000        # 7 days
+      KAFKA_LOG_RETENTION_BYTES: -1            # no limited
+
       KAFKA_LOG_DIRS: "/var/lib/kafka/data"
       KAFKA_NUM_PARTITIONS: 3
       KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false"
@@ -108,6 +114,10 @@ services:
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 2
       KAFKA_MIN_INSYNC_REPLICAS: 2
       KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+
+      KAFKA_LOG_RETENTION_MS: 604800000        # 7 days
+      KAFKA_LOG_RETENTION_BYTES: -1            # no limited
+
       KAFKA_LOG_DIRS: "/var/lib/kafka/data"
       KAFKA_NUM_PARTITIONS: 3
       KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false"

@@ -135,7 +135,7 @@ public class AuthServiceTest {
     }
 
     @Test
-    public void testRedis() {
+    public void testRedisZset() {
         try (JedisPooled jedis = new JedisPooled("localhost", 6379)) {
             String key = "rank:scores";
             jedis.zadd(key, 100, "u1");

@@ -32,7 +32,6 @@ public class ChatMessageConsumer {
         this.kafkaTemplate = kafkaTemplate;
     }
 
-    // Listen to specific partitions (0 and 1) of the topic
     @KafkaListener(
         topicPartitions = @TopicPartition(
             topic = "${spring.kafka.topic.name}", 
@@ -46,25 +45,39 @@ public class ChatMessageConsumer {
                         Acknowledgment acknowledgment) {
         logger.info("Consumed message from partition {}: {} with offset: {}", partition, message, offset);
 
-        // Process the message for specific partitions
         processMessageFromPartition(message, partition);
 
-        // Manually acknowledge the message if required
         acknowledgment.acknowledge();
     }
 
-    /**
-     * Process messages from specific partitions (0 and 1)
-     */
+    @KafkaListener(
+        topicPartitions = @TopicPartition(
+            topic = "${spring.kafka.topic.name}", 
+            partitions = {"2"}
+        ),
+        groupId = "${spring.kafka.consumer.group-id}"
+    )
+    public void consume2(@Payload ChatMessage message,
+                        @Header(KafkaHeaders.RECEIVED_PARTITION) int partition,
+                        @Header(KafkaHeaders.OFFSET) long offset,
+                        Acknowledgment acknowledgment) {
+        logger.info("Consumed message from partition {}: {} with offset: {}", partition, message, offset);
+
+        processMessageFromPartition(message, partition);
+
+        acknowledgment.acknowledge();
+    }
+
     private void processMessageFromPartition(ChatMessage message, int partition) {
         switch (partition) {
             case 0:
-                logger.info("Processing message from partition 0: {}", message.getContent());
-                // Business logic for partition 0
+                logger.info("First Processing message from partition 0: {}", message.getContent());
                 break;
             case 1:
-                logger.info("Processing message from partition 1: {}", message.getContent());
-                // Business logic for partition 1
+                logger.info("First Processing message from partition 1: {}", message.getContent());
+                break;
+            case 2:
+                logger.info("Second Processing message from partition 2: {}", message.getContent());
                 break;
             default:
                 logger.warn("Unexpected partition: {}", partition);

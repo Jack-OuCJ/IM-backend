@@ -52,8 +52,13 @@ public class ChatMessageProducer {
      */
     public void sendMessageToPartition(int partition, String key, ChatMessage message) {
         ProducerRecord<String, ChatMessage> record = new ProducerRecord<>(topic, partition, key, message);
-        sendMessageWithRetry(() -> kafkaTemplate.send(record), 
-                           "partition: " + partition, message, 1);
+        sendMessageWithRetry(() -> kafkaTemplate.send(record),
+                "partition: " + partition, message, 1);
+    }
+    
+    public void sendMessageToPartitionNoRetry(int partition, String key, ChatMessage message) {
+        ProducerRecord<String, ChatMessage> record = new ProducerRecord<>(topic, partition, key, message);
+        kafkaTemplate.send(record);
     }
 
     /**

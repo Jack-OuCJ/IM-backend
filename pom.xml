@@ -45,6 +45,8 @@
         <module>message-sequence-service</module>
         <module>user-service</module>
         <module>gateway</module>
+        <module>kafka-demo</module>
+        <module>redis-demo</module>
     </modules>
 
     <dependencyManagement>

@@ -9,15 +9,19 @@ spring:
     bootstrap-servers: localhost:29092,localhost:29093,localhost:29094
     
     topic:
-      name: chat-message-topic
+      name: chat-message-topic1
       partitions: 3
-      replication-factor: 2
+      replication-factor: 3
       
     producer:
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
       value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
       acks: all
-      retries: 3
+      retries: 100
+      properties:
+        retry.backoff.ms: 800
+        request.timeout.ms: 1000
+        delivery.timeout.ms: 120000
       batch-size: 16384
       linger-ms: 1
       buffer-memory: 33554432
@@ -52,8 +56,8 @@ im:
 kafka:
   producer:
     retry:
-      max-attempts: 3
+      max-attempts: 10
       delay-ms: 1000
   retry:
-    max-attempts: 3
+    max-attempts: 10
     delay-ms: 1000

@@ -1,15 +1,15 @@
 # GitHub Copilot Instructions
 
-You are a senior software engineer working on an IM (Instant Messaging) backend system.
+You are a senior software engineer.
 
 ## Code Guidelines
 
 ### Language and Comments
 - **ALL comments must be in English** - No Chinese characters in comments
 - **ALL log messages must be in English** - No Chinese characters in logs
-- Use clear, concise English for documentation
 - Variable names should be descriptive and in English
 - The text responding to the question needs to be in Chinese
+- Don't write too many meaningless comments—just explain why you're doing it, not how the code does it.
 
 ### Code Style
 - Follow Java conventions and Spring Boot best practices
@@ -55,7 +55,6 @@ logger.info("消息发送成功");
 
 ## Key Requirements
 - Always use English for comments and logs
-- Follow Spring Boot and Kafka best practices
 - Include proper error handling
 - Use appropriate logging levels
 - Write clean, maintainable code

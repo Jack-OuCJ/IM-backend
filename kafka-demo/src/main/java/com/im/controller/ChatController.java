@@ -62,6 +62,18 @@ public class ChatController {
         return ResponseEntity.ok("Message sent successfully to partition: " + partition);
     }
 
+    @PostMapping("/send-to-partition-no-retry")
+    public ResponseEntity<String> sendMessageToPartitionNoRetry(
+            @RequestParam int partition,
+            @RequestParam(required = false) String key,
+            @Valid @RequestBody ChatMessage chatMessage) {
+        chatMessage.setMessageId(UUID.randomUUID().toString());
+        String messageKey = key != null ? key : chatMessage.getSender() + "-" + chatMessage.getReceiver();
+        chatMessageProducer.sendMessageToPartitionNoRetry(partition, messageKey, chatMessage);
+        logger.info("Message sent to partition {} (no retry): {}", partition, chatMessage);
+        return ResponseEntity.ok("Message sent successfully to partition (no retry): " + partition);
+    }
+
     /**
      * Send message using business partition strategy (ensures messages from same conversation are in same partition)
      */

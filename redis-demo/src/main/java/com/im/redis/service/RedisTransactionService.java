@@ -3,13 +3,13 @@ package com.im.redis.service;
 import com.im.redis.util.RedisKeyUtil;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.redis.core.SessionCallback;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 
 import java.time.Duration;
 import java.util.Arrays;
 import java.util.List;
-import java.util.concurrent.TimeUnit;
 
 /**
  * Redis Transaction and Optimistic Lock Service
@@ -35,27 +35,26 @@ public class RedisTransactionService {
         
         log.info("Executing transaction for keys: {} and {}", key1, key2);
         
-        // Start transaction
-        stringRedisTemplate.multi();
+        // Execute transaction using SessionCallback to ensure proper transaction handling
+        List<Object> results = stringRedisTemplate.execute(new org.springframework.data.redis.core.SessionCallback<List<Object>>() {
+            @Override
+            @SuppressWarnings("unchecked")
+            public <K, V> List<Object> execute(@org.springframework.lang.NonNull org.springframework.data.redis.core.RedisOperations<K, V> operations) {
+                operations.multi();
+                
+                // Queue operations
+                ((org.springframework.data.redis.core.RedisOperations<String, String>) operations).opsForValue().set(key1, value1);
+                ((org.springframework.data.redis.core.RedisOperations<String, String>) operations).opsForValue().set(key2, value2);
+                ((org.springframework.data.redis.core.RedisOperations<String, String>) operations).expire(key1, Duration.ofMinutes(10));
+                ((org.springframework.data.redis.core.RedisOperations<String, String>) operations).expire(key2, Duration.ofMinutes(10));
+                
+                // Execute transaction
+                return operations.exec();
+            }
+        });
         
-        try {
-            // Queue operations
-            stringRedisTemplate.opsForValue().set(key1, value1);
-            stringRedisTemplate.opsForValue().set(key2, value2);
-            stringRedisTemplate.expire(key1, Duration.ofMinutes(10));
-            stringRedisTemplate.expire(key2, Duration.ofMinutes(10));
-            
-            // Execute transaction
-            List<Object> results = stringRedisTemplate.exec();
-            log.info("Transaction executed successfully, operations count: {}", results.size());
-            return results;
-            
-        } catch (Exception e) {
-            // Discard transaction on error
-            stringRedisTemplate.discard();
-            log.error("Transaction failed, discarded: {}", e.getMessage());
-            throw e;
-        }
+        log.info("Transaction executed successfully, operations count: {}", results != null ? results.size() : 0);
+        return results;
     }
 
     /**
@@ -66,26 +65,31 @@ public class RedisTransactionService {
         
         for (int attempt = 1; attempt <= maxAttempts; attempt++) {
             try {
-                // Watch the key for changes
-                stringRedisTemplate.watch(key);
-                
-                // Get current value
-                String currentValue = stringRedisTemplate.opsForValue().get(key);
-                int current = currentValue != null ? Integer.parseInt(currentValue) : 0;
-                
-                // Start transaction
-                stringRedisTemplate.multi();
-                
-                // Queue increment operation
-                stringRedisTemplate.opsForValue().set(key, String.valueOf(current + 1));
-                stringRedisTemplate.expire(key, Duration.ofMinutes(10));
-                
-                // Execute transaction
-                List<Object> results = stringRedisTemplate.exec();
+                List<Object> results = stringRedisTemplate.execute(new SessionCallback<List<Object>>() {
+                    @Override
+                    @SuppressWarnings("unchecked")
+                    public <K, V> List<Object> execute(@org.springframework.lang.NonNull org.springframework.data.redis.core.RedisOperations<K, V> operations) {
+                        // Watch the key for changes
+                        ((org.springframework.data.redis.core.RedisOperations<String, String>) operations).watch(key);
+                        
+                        // Get current value outside transaction
+                        String currentValue = ((org.springframework.data.redis.core.RedisOperations<String, String>) operations).opsForValue().get(key);
+                        int current = currentValue != null ? Integer.parseInt(currentValue) : 0;
+                        
+                        // Start transaction
+                        operations.multi();
+                        
+                        // Queue increment operation
+                        ((org.springframework.data.redis.core.RedisOperations<String, String>) operations).opsForValue().set(key, String.valueOf(current + 1));
+                        ((org.springframework.data.redis.core.RedisOperations<String, String>) operations).expire(key, Duration.ofMinutes(10));
+                        
+                        // Execute transaction
+                        return operations.exec();
+                    }
+                });
                 
                 if (results != null && !results.isEmpty()) {
-                    log.info("Optimistic lock success on attempt {} - key: {}, new value: {}", 
-                            attempt, key, current + 1);
+                    log.info("Optimistic lock success on attempt {} - key: {}", attempt, key);
                     return true;
                 } else {
                     log.warn("Optimistic lock failed on attempt {} - key: {}, retrying...", attempt, key);
@@ -96,16 +100,12 @@ public class RedisTransactionService {
             } catch (Exception e) {
                 log.error("Error during optimistic lock attempt {} - key: {}, error: {}", 
                          attempt, key, e.getMessage());
-                stringRedisTemplate.discard();
                 try {
                     Thread.sleep(10 * attempt);
                 } catch (InterruptedException ie) {
                     Thread.currentThread().interrupt();
                     break;
                 }
-            } finally {
-                // Unwatch all keys
-                stringRedisTemplate.unwatch();
             }
         }
         
@@ -124,35 +124,40 @@ public class RedisTransactionService {
         
         for (int attempt = 1; attempt <= maxAttempts; attempt++) {
             try {
-                // Watch both keys
-                stringRedisTemplate.watch(Arrays.asList(sourceKey, destKey));
-                
-                // Get current values
-                String sourceValue = stringRedisTemplate.opsForValue().get(sourceKey);
-                String destValue = stringRedisTemplate.opsForValue().get(destKey);
-                
-                int sourceBalance = sourceValue != null ? Integer.parseInt(sourceValue) : 0;
-                int destBalance = destValue != null ? Integer.parseInt(destValue) : 0;
-                
-                // Check if transfer is possible
-                if (sourceBalance < amount) {
-                    log.warn("Insufficient balance for transfer - source: {}, balance: {}, amount: {}", 
-                            sourceKey, sourceBalance, amount);
-                    stringRedisTemplate.unwatch();
-                    return false;
-                }
-                
-                // Start transaction
-                stringRedisTemplate.multi();
-                
-                // Queue transfer operations
-                stringRedisTemplate.opsForValue().set(sourceKey, String.valueOf(sourceBalance - amount));
-                stringRedisTemplate.opsForValue().set(destKey, String.valueOf(destBalance + amount));
-                stringRedisTemplate.expire(sourceKey, Duration.ofMinutes(30));
-                stringRedisTemplate.expire(destKey, Duration.ofMinutes(30));
-                
-                // Execute transaction
-                List<Object> results = stringRedisTemplate.exec();
+                List<Object> results = stringRedisTemplate.execute(new SessionCallback<List<Object>>() {
+                    @Override
+                    @SuppressWarnings("unchecked")
+                    public <K, V> List<Object> execute(@org.springframework.lang.NonNull org.springframework.data.redis.core.RedisOperations<K, V> operations) {
+                        // Watch both keys
+                        ((org.springframework.data.redis.core.RedisOperations<String, String>) operations).watch(Arrays.asList(sourceKey, destKey));
+                        
+                        // Get current values outside transaction
+                        String sourceValue = ((org.springframework.data.redis.core.RedisOperations<String, String>) operations).opsForValue().get(sourceKey);
+                        String destValue = ((org.springframework.data.redis.core.RedisOperations<String, String>) operations).opsForValue().get(destKey);
+                        
+                        int sourceBalance = sourceValue != null ? Integer.parseInt(sourceValue) : 0;
+                        int destBalance = destValue != null ? Integer.parseInt(destValue) : 0;
+                        
+                        // Check if transfer is possible
+                        if (sourceBalance < amount) {
+                            log.warn("Insufficient balance for transfer - source: {}, balance: {}, amount: {}", 
+                                    sourceKey, sourceBalance, amount);
+                            return null; // Return null to indicate failure
+                        }
+                        
+                        // Start transaction
+                        operations.multi();
+                        
+                        // Queue transfer operations
+                        ((org.springframework.data.redis.core.RedisOperations<String, String>) operations).opsForValue().set(sourceKey, String.valueOf(sourceBalance - amount));
+                        ((org.springframework.data.redis.core.RedisOperations<String, String>) operations).opsForValue().set(destKey, String.valueOf(destBalance + amount));
+                        ((org.springframework.data.redis.core.RedisOperations<String, String>) operations).expire(sourceKey, Duration.ofMinutes(30));
+                        ((org.springframework.data.redis.core.RedisOperations<String, String>) operations).expire(destKey, Duration.ofMinutes(30));
+                        
+                        // Execute transaction
+                        return operations.exec();
+                    }
+                });
                 
                 if (results != null && !results.isEmpty()) {
                     log.info("Transfer successful on attempt {} - from {} to {}, amount: {}", 
@@ -165,15 +170,12 @@ public class RedisTransactionService {
                 
             } catch (Exception e) {
                 log.error("Error during transfer attempt {} - error: {}", attempt, e.getMessage());
-                stringRedisTemplate.discard();
                 try {
                     Thread.sleep(20 * attempt);
                 } catch (InterruptedException ie) {
                     Thread.currentThread().interrupt();
                     break;
                 }
-            } finally {
-                stringRedisTemplate.unwatch();
             }
         }
         
@@ -185,61 +187,70 @@ public class RedisTransactionService {
      * Optimistic lock for updating user session with version check
      */
     public boolean updateUserSession(String userId, String sessionData, String expectedVersion, int maxAttempts) {
-        String sessionKey = redisKeyUtil.buildUserSessionKey(userId);
-        String versionKey = redisKeyUtil.buildKey("user", "session", userId, "version");
+        final String sessionKey = redisKeyUtil.buildUserSessionKey(userId);
+        final String versionKey = redisKeyUtil.buildKey("user", "session", userId, "version");
         
         for (int attempt = 1; attempt <= maxAttempts; attempt++) {
+            final int currentAttempt = attempt;
             try {
-                // Watch both session and version keys
-                stringRedisTemplate.watch(Arrays.asList(sessionKey, versionKey));
-                
-                // Get current version
-                String currentVersion = stringRedisTemplate.opsForValue().get(versionKey);
-                
-                // Check version
-                if (currentVersion != null && !currentVersion.equals(expectedVersion)) {
-                    log.warn("Version mismatch for user session - userId: {}, expected: {}, current: {}", 
-                            userId, expectedVersion, currentVersion);
-                    stringRedisTemplate.unwatch();
-                    return false;
-                }
-                
-                // Start transaction
-                stringRedisTemplate.multi();
-                
-                // Generate new version
-                String newVersion = String.valueOf(System.currentTimeMillis());
-                
-                // Queue update operations
-                stringRedisTemplate.opsForValue().set(sessionKey, sessionData);
-                stringRedisTemplate.opsForValue().set(versionKey, newVersion);
-                stringRedisTemplate.expire(sessionKey, Duration.ofHours(24));
-                stringRedisTemplate.expire(versionKey, Duration.ofHours(24));
-                
-                // Execute transaction
-                List<Object> results = stringRedisTemplate.exec();
+                List<Object> results = stringRedisTemplate.execute(new SessionCallback<List<Object>>() {
+                    @Override
+                    public <K, V> List<Object> execute(org.springframework.data.redis.core.RedisOperations<K, V> operations) throws org.springframework.dao.DataAccessException {
+                        // Watch both session and version keys
+                        ((org.springframework.data.redis.core.RedisOperations<String, String>) operations).watch(Arrays.asList(sessionKey, versionKey));
+                        
+                        // Get current version
+                        String currentVersion = ((org.springframework.data.redis.core.RedisOperations<String, String>) operations).opsForValue().get(versionKey);
+                        
+                        // Check version
+                        if (currentVersion != null && !currentVersion.equals(expectedVersion)) {
+                            log.warn("Version mismatch for user session - userId: {}, expected: {}, current: {}", 
+                                    userId, expectedVersion, currentVersion);
+                            ((org.springframework.data.redis.core.RedisOperations<String, String>) operations).unwatch();
+                            return null; // Return null to indicate failure
+                        }
+                        
+                        // Start transaction
+                        operations.multi();
+                        
+                        // Generate new version
+                        String newVersion = String.valueOf(System.currentTimeMillis());
+                        
+                        // Queue update operations
+                        ((org.springframework.data.redis.core.RedisOperations<String, String>) operations).opsForValue().set(sessionKey, sessionData);
+                        ((org.springframework.data.redis.core.RedisOperations<String, String>) operations).opsForValue().set(versionKey, newVersion);
+                        ((org.springframework.data.redis.core.RedisOperations<String, String>) operations).expire(sessionKey, Duration.ofHours(24));
+                        ((org.springframework.data.redis.core.RedisOperations<String, String>) operations).expire(versionKey, Duration.ofHours(24));
+                        
+                        // Execute transaction
+                        List<Object> txResults = operations.exec();
+                        
+                        if (txResults != null && !txResults.isEmpty()) {
+                            log.info("User session updated successfully on attempt {} - userId: {}, new version: {}", 
+                                    currentAttempt, userId, newVersion);
+                        } else {
+                            log.warn("User session update failed on attempt {} due to concurrent modification", currentAttempt);
+                        }
+                        
+                        return txResults;
+                    }
+                });
                 
                 if (results != null && !results.isEmpty()) {
-                    log.info("User session updated successfully on attempt {} - userId: {}, new version: {}", 
-                            attempt, userId, newVersion);
                     return true;
-                } else {
-                    log.warn("User session update failed on attempt {} due to concurrent modification", attempt);
-                    Thread.sleep(15 * attempt);
                 }
+                
+                Thread.sleep(15 * attempt);
                 
             } catch (Exception e) {
                 log.error("Error during user session update attempt {} - userId: {}, error: {}", 
                          attempt, userId, e.getMessage());
-                stringRedisTemplate.discard();
                 try {
                     Thread.sleep(15 * attempt);
                 } catch (InterruptedException ie) {
                     Thread.currentThread().interrupt();
                     break;
                 }
-            } finally {
-                stringRedisTemplate.unwatch();
             }
         }
         
